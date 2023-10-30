@@ -14,7 +14,7 @@ jobs:
       run:
         working-directory: ./simpleapi
     steps:
-      #checkout your github code using actions/checkout@v2.5.0
+
       - uses: actions/checkout@v2.5.0
 
       #do the same with another action (actions/setup-java@v3) that enable to setup jdk 17
