@@ -1,6 +1,6 @@
 name: CI devops 2023
 on:
-  #to begin you want to launch this job in main and develop
+    #to begin you want to launch this job in main and develop
   push:
     branches:
       - 'main'
@@ -30,41 +30,3 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=JulietteCrespo_tp_ci_cd  # define job to build and publish docker image
-  build-and-push-docker-image:
-    needs: test-backend
-    # run only when code is compiling and tests are passing
-    runs-on: ubuntu-22.04
-    # steps to perform in job
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v2.5.0
-
-      - name: Login to DockerHub
-        run: docker login -u ${{ vars.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Build image and push backend
-        uses: docker/build-push-action@v3
-        with:
-          # relative path to the place where source code with Dockerfile is located
-          context: ./simpleapi
-          # Note: tags has to be all lower-case
-          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-backend:latest
-          push: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build image and push database
-        uses: docker/build-push-action@v3
-        with:
-          # relative path to the place where source code with Dockerfile is located
-          context: ./db
-          # Note: tags has to be all lower-case
-          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-db:latest
-          push: ${{ github.ref == 'refs/heads/main' }}
-
-      - name: Build image and push httpd
-        uses: docker/build-push-action@v3
-        with:
-          # relative path to the place where source code with Dockerfile is located
-          context: ./frontend
-          # Note: tags has to be all lower-case
-          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-frontend:latest
-          push: ${{ github.ref == 'refs/heads/main' }}
