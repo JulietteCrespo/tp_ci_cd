@@ -34,30 +34,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2.5.0
 
-      - name: Build image and push backend
-        uses: docker/build-push-action@v3
-        with:
-          # relative path to the place where source code with Dockerfile is located
-          context: ./simpleapi
-          # Note: tags has to be all lower-case
-          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-backend:latest
-
-      - name: Build image and push database
-        uses: docker/build-push-action@v3
-        with:
-          # relative path to the place where source code with Dockerfile is located
-          context: ./db
-          # Note: tags has to be all lower-case
-          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-db:latest
-
-      - name: Build image and push httpd
-        uses: docker/build-push-action@v3
-        with:
-          # relative path to the place where source code with Dockerfile is located
-          context: ./frontend
-          # Note: tags has to be all lower-case
-          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-frontend:latest
-
       - name: Login to DockerHub
         run: docker login -u ${{ vars.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_PASSWORD }}
 
@@ -68,25 +44,22 @@ jobs:
           context: ./simpleapi
           # Note: tags has to be all lower-case
           tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-backend:latest
-          # build on feature branches, push only on main branch
           push: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build image and push db
+      - name: Build image and push database
         uses: docker/build-push-action@v3
         with:
           # relative path to the place where source code with Dockerfile is located
           context: ./db
           # Note: tags has to be all lower-case
           tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-db:latest
-          # build on feature branches, push only on main branch
           push: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Build image and push frontend
+      - name: Build image and push httpd
         uses: docker/build-push-action@v3
         with:
           # relative path to the place where source code with Dockerfile is located
           context: ./frontend
           # Note: tags has to be all lower-case
           tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-frontend:latest
-          # build on feature branches, push only on main branch
           push: ${{ github.ref == 'refs/heads/main' }}
