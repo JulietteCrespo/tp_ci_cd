@@ -10,6 +10,9 @@ on:
 jobs:
   test-backend:
     runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: ./simpleapi
     steps:
       #checkout your github code using actions/checkout@v2.5.0
       - uses: actions/checkout@v2.5.0
