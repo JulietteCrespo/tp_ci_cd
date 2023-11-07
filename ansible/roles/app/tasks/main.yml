@@ -1,0 +1,7 @@
+- name: Run backend
+  docker_container:
+    name: api
+    image: jcrespota/tp-01-backend:latest
+    networks:
+      - name: app-network
+    ports: "8080:8080"
