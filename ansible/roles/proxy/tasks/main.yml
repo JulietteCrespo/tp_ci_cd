@@ -1,0 +1,7 @@
+- name: Run frontend
+  docker_container:
+    name: frontend
+    image: jcrespota/tp-01-frontend:latest
+    networks:
+      - name: app-network
+    ports: "80:80"

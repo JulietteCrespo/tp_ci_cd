@@ -1,0 +1,10 @@
+- name: Run db
+  docker_container:
+    name: db
+    image: jcrespota/tp-01-db:latest
+    env:
+      POSTGRES_DB: "db"
+      POSTGRES_USER: "usr"
+      POSTGRES_PASSWORD: "pwd"
+    networks:
+      - name: app-network
