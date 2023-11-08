@@ -331,9 +331,13 @@ jobs:
 Aprés avoir `git commit` et `git push`, nous pouvons voir que la pipeline a fonctionné :
 
 <img width="1048" alt="Capture d’écran 2023-11-08 à 16 00 45" src="https://github.com/JulietteCrespo/tp_ci_cd/assets/73819396/75fc0f43-8213-438a-84ef-f823bca192ba">
+
 #
+
 Maintenant nous voulons push nos images pour cela, nous modifions de nouveau le fichier main.yml:
+
 ```
+
 name: CI devops 2023
 on:
   #to begin you want to launch this job in main and develop
@@ -360,7 +364,7 @@ jobs:
       #finally build your app with the latest command
       - name: Build and test with Maven
         run: mvn clean verify -f ./simpleapi/pom.xml
-  # define job to build and publish docker image
+      # define job to build and publish docker image
   build-and-push-docker-image:
     needs: test-backend
     # run only when code is compiling and tests are passing
@@ -400,6 +404,8 @@ jobs:
           tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-frontend:latest
           push: ${{ github.ref == 'refs/heads/main' }}
 ```
+
+
 Aprés avoir `git commit` et `git push`, nous pouvons voir que la pipeline a fonctionné :
 
 <img width="1048" alt="Capture d’écran 2023-11-08 à 16 05 25" src="https://github.com/JulietteCrespo/tp_ci_cd/assets/73819396/ea2c95d2-9451-443f-827b-2310ee575056">
@@ -498,10 +504,124 @@ Maintenant nous pouvons utiliser SonarCloud :
 <img width="1386" alt="Capture d’écran 2023-11-08 à 16 24 46" src="https://github.com/JulietteCrespo/tp_ci_cd/assets/73819396/8776cab3-0d41-41d0-aae2-fa930c94341c">
 
 
+# TP part 03 - Ansible
 
+Nous créons les dossiers suivant `.ansible/inventories` avec le fichier ci-dessus :
 
+**setup.yml**
+```
+all:
+ vars:
+   ansible_user: centos
+   ansible_ssh_private_key_file: ../../id_rsa
+ children:
+   prod:
+     hosts: marion.chineaud.takima.cloud
+```
 
+Nous utilisons `ansible all -i inventories/setup.yml -m ping` pour tester la connectivité
 
+Nous utilise le module "setup" pour collecter des informations sur les hôtes, en filtrant spécifiquement les informations liées à la distribution du système :
+`ansible all -i inventories/setup.yml -m setup -a "filter=ansible_distribution*"` 
+
+#
+
+Nous créons par la suite un fichier playbooks.yml dans le dossier .ansible/inventories. Il vas permettre d'utiliser différent roles :
+
+**playbooks.yml**
+```
+- hosts: all # definit les hôtes
+  gather_facts: false
+  become: yes # désactive la collecte des facts
+  roles: # rôles Ansible à exécuter dans un ordre précis
+    - docker
+    - networks
+    - database
+    - api
+    - proxy
+```
+
+On exécute le playbook : 
+`ansible-playbook -i inventories/setup.yml playbook.yml`
+
+#
+Maintenant, nous déployons notre application avec les rôles suivants :
+
+- installer docker :
+  **docker/main.yml**
+  ```
+      - name: Clean packages
+        command:
+          cmd: yum clean -y packages
+      
+      - name: Install device-mapper-persistent-data
+        yum:
+          name: device-mapper-persistent-data
+          state: latest
+      
+      - name: Install lvm2
+        yum:
+          name: lvm2
+          state: latest
+      
+      - name: add repo docker
+        command:
+          cmd: sudo yum-config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+      
+      - name: Install Docker
+        yum:
+          name: docker-ce
+          state: present
+      
+      - name: Make sure Docker is running
+        service: name=docker state=started
+        tags: docker
+  ```
+- créer un réseau :
+  **network/main.yml**
+  ```
+    - name: Creating a Docker network
+      docker_network:
+        name: app-network
+  ```
+- base de données de lancement :
+  **database/main.yml**
+  ```
+    - name: Run db
+      docker_container:
+        name: db
+        image: jcrespota/tp-01-db:latest
+        env:
+          POSTGRES_DB: "db"
+          POSTGRES_USER: "usr"
+          POSTGRES_PASSWORD: "pwd"
+        networks:
+          - name: app-network
+  ```
+- lancer l'application :
+  **app/main.yml**
+  ```
+    - name: Run backend
+        docker_container:
+          name: api
+          image: jcrespota/tp-01-backend:latest
+          networks:
+            - name: app-network
+          ports: "8080:8080"
+  ```
+- proxy de lancement :
+    **proxy/main.yml**
+  ```
+    - name: Run frontend
+      docker_container:
+        name: frontend
+        image: jcrespota/tp-01-frontend:latest
+        networks:
+          - name: app-network
+        ports: "80:80"
+  ```
+
+Les différents rôles sont lancer grace au fichier playbooks.yml.
 
 
 
