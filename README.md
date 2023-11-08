@@ -165,6 +165,7 @@ docker run -p 8091:8080 --name backend --network app-network jcrespota/backend
 version: '3.7'
 
 services:
+# Création du conteneur de la base de donnée en récupérent les variables secrétes du .env, puis connexion au network et au volume
   api:
     build:
       context: ./simpleapi
@@ -176,6 +177,7 @@ services:
     depends_on:
       - db
 
+# Création du conteneur de l'api (connecté au network) uniquement si la base de données a démarré 
   db:
     build:
       context: ./db
@@ -183,6 +185,7 @@ services:
     networks:
       - app-network
 
+# Création du proxy (en indiquant le port et le network) uniquement si l'api a démarré
   frontend:
     build:
       context: ./frontend
@@ -194,6 +197,7 @@ services:
     depends_on:
       - api
 
+# Création d'un network pour permettre aux conteneurs de communiquer 
 networks:
   app-network:
 ```
@@ -215,5 +219,297 @@ Nous pouvons visualiser les images sur le compte DockerHub :
 <img width="934" alt="Capture d’écran 2023-11-08 à 14 56 58" src="https://github.com/JulietteCrespo/tp_ci_cd/assets/73819396/82294e8d-9d2c-4fec-b4c5-ad7f3b1f811e">
 
 # TP part 02 - Docker
+
+**Testcontainers :**
+Ce sont des bibliothèques qui facilitent l'utilisation de conteneurs Docker dans des test.
+#
+
+
+Dans un premier temps, il faut créer un repository GitHub :
+```
+git init
+git remote add origin https://github.com/JulietteCrespo/tp_ci_cd.git
+git push --set-upstream origin main
+```
+Nous ajoutons les dossiers suivant `.github/workflows` avec le fichier ci-dessus :
+**main.yml**
+```
+name: CI devops 2023
+on:
+  #to begin you want to launch this job in main and develop
+  push:
+    branches:
+      - 'main'
+      - 'develop'
+  pull_request:
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-22.04
+    steps:
+      #checkout your github code using actions/checkout@v2.5.0
+      - uses: actions/checkout@v2.5.0
+
+      #do the same with another action (actions/setup-java@v3) that enable to setup jdk 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      #finally build your app with the latest command
+      - name: Build and test with Maven
+        run: mvn clean verify -f ./simpleapi/pom.xml
+```
+Aprés avoir `git commit` et `git push`, nous pouvons voir que la pipeline a fonctionné :
+
+<img width="1048" alt="Capture d’écran 2023-11-08 à 15 51 11" src="https://github.com/JulietteCrespo/tp_ci_cd/assets/73819396/852364d1-b480-4be4-8c37-fc7bad477ed8">
+
+#
+Maintenant nous voulons construire une docker image dans la GitHub Actions pipeline. Pour cela on modifie le main.yml :
+```
+name: CI devops 2023
+on:
+  #to begin you want to launch this job in main and develop
+  push:
+    branches:
+      - 'main'
+      - 'develop'
+  pull_request:
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-22.04
+    steps:
+      #checkout your github code using actions/checkout@v2.5.0
+      - uses: actions/checkout@v2.5.0
+
+      #do the same with another action (actions/setup-java@v3) that enable to setup jdk 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      #finally build your app with the latest command
+      - name: Build and test with Maven
+        run: mvn clean verify -f ./simpleapi/pom.xml
+  # define job to build and publish docker image
+  build-and-push-docker-image:
+    needs: test-backend
+    # run only when code is compiling and tests are passing
+    runs-on: ubuntu-22.04
+    # steps to perform in job
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2.5.0
+
+      - name: Build image and push backend
+        uses: docker/build-push-action@v3
+        with:
+          # relative path to the place where source code with Dockerfile is located
+          context: ./simpleapi
+          # Note: tags has to be all lower-case
+          tags: ${{secrets.DOCKERHUB_USERNAME}}/tp-01:latest
+
+      - name: Build image and push database
+        uses: docker/build-push-action@v3
+        with:
+          # relative path to the place where source code with Dockerfile is located
+          context: ./db
+          # Note: tags has to be all lower-case
+          tags: ${{secrets.DOCKERHUB_USERNAME}}/tp-01:latest
+
+      - name: Build image and push httpd
+        uses: docker/build-push-action@v3
+        with:
+          # relative path to the place where source code with Dockerfile is located
+          context: ./frontend
+          # Note: tags has to be all lower-case
+          tags: ${{secrets.DOCKERHUB_USERNAME}}/tp-devops-simple-api:latest
+```
+Aprés avoir `git commit` et `git push`, nous pouvons voir que la pipeline a fonctionné :
+
+<img width="1048" alt="Capture d’écran 2023-11-08 à 16 00 45" src="https://github.com/JulietteCrespo/tp_ci_cd/assets/73819396/75fc0f43-8213-438a-84ef-f823bca192ba">
+#
+Maintenant nous voulons push nos images pour cela, nous modifions de nouveau le fichier main.yml:
+```
+name: CI devops 2023
+on:
+  #to begin you want to launch this job in main and develop
+  push:
+    branches:
+      - 'main'
+      - 'develop'
+  pull_request:
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-22.04
+    steps:
+      #checkout your github code using actions/checkout@v2.5.0
+      - uses: actions/checkout@v2.5.0
+
+      #do the same with another action (actions/setup-java@v3) that enable to setup jdk 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      #finally build your app with the latest command
+      - name: Build and test with Maven
+        run: mvn clean verify -f ./simpleapi/pom.xml
+  # define job to build and publish docker image
+  build-and-push-docker-image:
+    needs: test-backend
+    # run only when code is compiling and tests are passing
+    runs-on: ubuntu-22.04
+    # steps to perform in job
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2.5.0
+
+      - name: Login to DockerHub
+        run: docker login -u ${{ vars.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build image and push backend
+        uses: docker/build-push-action@v3
+        with:
+          # relative path to the place where source code with Dockerfile is located
+          context: ./simpleapi
+          # Note: tags has to be all lower-case
+          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-backend:latest
+          push: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build image and push database
+        uses: docker/build-push-action@v3
+        with:
+          # relative path to the place where source code with Dockerfile is located
+          context: ./db
+          # Note: tags has to be all lower-case
+          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-db:latest
+          push: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build image and push httpd
+        uses: docker/build-push-action@v3
+        with:
+          # relative path to the place where source code with Dockerfile is located
+          context: ./frontend
+          # Note: tags has to be all lower-case
+          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-frontend:latest
+          push: ${{ github.ref == 'refs/heads/main' }}
+```
+Aprés avoir `git commit` et `git push`, nous pouvons voir que la pipeline a fonctionné :
+
+<img width="1048" alt="Capture d’écran 2023-11-08 à 16 05 25" src="https://github.com/JulietteCrespo/tp_ci_cd/assets/73819396/ea2c95d2-9451-443f-827b-2310ee575056">
+
+Nous avons ajouté nos identifiants de DockerHub au variables de GitHub Action ainsi notre image est publier sur DockerHub :
+
+<img width="778" alt="Capture d’écran 2023-11-08 à 16 07 13" src="https://github.com/JulietteCrespo/tp_ci_cd/assets/73819396/e8804861-54ce-4148-8933-5cbfe2cb6616">
+
+<img width="930" alt="Capture d’écran 2023-11-08 à 16 11 37" src="https://github.com/JulietteCrespo/tp_ci_cd/assets/73819396/76918a4f-c347-48fa-96fd-ffa3eb4d7069">
+
+#
+
+Nous voulons utiliser SonarCloud. Pour cela, nous créons un compte Sonar Cloud.
+
+Puis nous avons récupéré la project key & organization key et nous avons ajouté aux variables de GitHub Action :
+
+<img width="779" alt="Capture d’écran 2023-11-08 à 16 20 16" src="https://github.com/JulietteCrespo/tp_ci_cd/assets/73819396/256f799e-c072-41ff-8b44-d98ce4cf431a">
+
+
+Nous modifions de nouveau le fichier main.yml:
+```
+name: CI devops 2023
+on:
+  #to begin you want to launch this job in main and develop
+  push:
+    branches:
+      - 'main'
+      - 'develop'
+  pull_request:
+
+jobs:
+  test-backend:
+    runs-on: ubuntu-22.04
+    defaults:
+      run:
+        working-directory: ./simpleapi
+    steps:
+      #checkout your github code using actions/checkout@v2.5.0
+      - uses: actions/checkout@v2.5.0
+
+      #do the same with another action (actions/setup-java@v3) that enable to setup jdk 17
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: 17
+
+      #finally build your app with the latest command
+      - name: Build and test with Maven
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn -B verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.projectKey=JulietteCrespo_tp_ci_cd  # define job to build and publish docker image
+  build-and-push-docker-image:
+    needs: test-backend
+    # run only when code is compiling and tests are passing
+    runs-on: ubuntu-22.04
+    # steps to perform in job
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2.5.0
+
+      - name: Login to DockerHub
+        run: docker login -u ${{ vars.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Build image and push backend
+        uses: docker/build-push-action@v3
+        with:
+          # relative path to the place where source code with Dockerfile is located
+          context: ./simpleapi
+          # Note: tags has to be all lower-case
+          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-backend:latest
+          push: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build image and push database
+        uses: docker/build-push-action@v3
+        with:
+          # relative path to the place where source code with Dockerfile is located
+          context: ./db
+          # Note: tags has to be all lower-case
+          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-db:latest
+          push: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Build image and push httpd
+        uses: docker/build-push-action@v3
+        with:
+          # relative path to the place where source code with Dockerfile is located
+          context: ./frontend
+          # Note: tags has to be all lower-case
+          tags: ${{vars.DOCKERHUB_USERNAME}}/tp-01-frontend:latest
+          push: ${{ github.ref == 'refs/heads/main' }}
+```
+
+Maintenant nous pouvons utiliser SonarCloud :
+
+<img width="1386" alt="Capture d’écran 2023-11-08 à 16 24 46" src="https://github.com/JulietteCrespo/tp_ci_cd/assets/73819396/8776cab3-0d41-41d0-aae2-fa930c94341c">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
