@@ -1,4 +1,4 @@
-# TP part 01 - Docker
+# TP part 01 - Docker - Juliette CRESPO
 ## Base de données
 Nous créons un fichier Dockerfile. Ici, nous faisons fonctionner un simple serveur postgres :
 ```
